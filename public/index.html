@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwiftPick Express - Click & Collect Customer Store</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- QR Code generation library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Socket.io -->
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+  <!-- Floating Multi-Role Switcher Header -->
+  <div id="shared-nav-container"></div>
+
+  <main class="app-container">
+    
+    <!-- Top Header -->
+    <header class="page-header">
+      <div class="page-title-group">
+        <h1>
+          <span>⚡ SwiftPick Express</span>
+          <span class="logo-badge">STOREFRONT</span>
+        </h1>
+        <p>Order fresh groceries & essentials. Pick up in under 30 seconds at your express counter.</p>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <button class="btn btn-secondary" id="btn-view-ticket" style="display: none;" onclick="openTicketModal()">
+          🎟️ Active Pickup Ticket (<span id="active-ticket-code"></span>)
+        </button>
+      </div>
+    </header>
+
+    <!-- Branch & 15-Minute Slot Selection Bar -->
+    <section class="slot-bar">
+      <div class="slot-selection-item">
+        <label for="branch-select">📍 Store Branch:</label>
+        <select id="branch-select" class="custom-select">
+          <option value="S01" selected>Store 01 - Downtown Flagship (Aisles 1-5)</option>
+          <option value="S02">Store 02 - Uptown Hub</option>
+        </select>
+      </div>
+
+      <div class="slot-selection-item">
+        <label for="slot-select">⏱️ 15-Min Collection Window:</label>
+        <select id="slot-select" class="custom-select">
+          <option value="5:15 PM – 5:30 PM" selected>5:15 PM – 5:30 PM (Next available)</option>
+          <option value="5:30 PM – 5:45 PM">5:30 PM – 5:45 PM</option>
+          <option value="5:45 PM – 6:00 PM">5:45 PM – 6:00 PM</option>
+          <option value="6:00 PM – 6:15 PM">6:00 PM – 6:15 PM</option>
+          <option value="6:15 PM – 6:30 PM">6:15 PM – 6:30 PM</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Atomic Lock Notification Banner (Shows when cart has locked items) -->
+    <div id="lock-banner" class="lock-banner" style="display: none;">
+      <div>
+        <strong>🔒 Atomic Inventory Lock Active:</strong> Your cart items are held exclusively for you. Other shoppers cannot buy them while you check out.
+      </div>
+      <div class="lock-timer-badge">
+        Expires in: <span id="lock-countdown">05:00</span>
+      </div>
+    </div>
+
+    <!-- Product Category Filter Tabs -->
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0.5rem;" id="category-filter-bar">
+      <button class="btn btn-primary" onclick="filterCategory('all', this)">All Aisles</button>
+      <button class="btn btn-secondary" onclick="filterCategory('Dairy & Eggs', this)">Aisle 1: Dairy</button>
+      <button class="btn btn-secondary" onclick="filterCategory('Produce', this)">Aisle 2: Produce</button>
+      <button class="btn btn-secondary" onclick="filterCategory('Bakery', this)">Aisle 3: Bakery</button>
+      <button class="btn btn-secondary" onclick="filterCategory('Pantry', this)">Aisle 3: Pantry</button>
+      <button class="btn btn-secondary" onclick="filterCategory('Snacks', this)">Aisle 4: Snacks</button>
+      <button class="btn btn-secondary" onclick="filterCategory('Beverages', this)">Aisle 4: Drinks</button>
+      <button class="btn btn-secondary" onclick="filterCategory('Household', this)">Aisle 5: Household</button>
+    </div>
+
+    <!-- High-Speed Touch Menu Grid -->
+    <section class="product-grid" id="product-grid">
+      <!-- Injected via customer.js -->
+    </section>
+
+  </main>
+
+  <!-- Sticky Bottom Cart Dock -->
+  <div class="cart-dock" id="cart-dock" style="display: none;">
+    <div class="cart-dock-info">
+      <span style="font-size: 1.3rem;">🛒</span>
+      <div>
+        <div style="font-weight: 800; font-size: 1.1rem; color: #fff;">
+          <span id="dock-item-count">0</span> items • $<span id="dock-total-price">0.00</span>
+        </div>
+        <div style="font-size: 0.75rem; color: #34d399;" id="dock-slot-label">
+          Slot: 5:15 PM – 5:30 PM
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="openCartModal()">
+      Review & Checkout ➔
+    </button>
+  </div>
+
+  <!-- Cart & Item Substitution Notes Modal -->
+  <div class="modal-backdrop" id="cart-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Your Express Cart</h2>
+        <button class="close-btn" onclick="closeCartModal()">&times;</button>
+      </div>
+
+      <div id="cart-items-container" style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+        <!-- Cart rows with substitution notes -->
+      </div>
+
+      <div style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem; margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
+          <span>Subtotal:</span>
+          <span id="cart-subtotal">$0.00</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem;">
+          <span>Express Pickup Fee:</span>
+          <span style="color: var(--primary); font-weight: 700;">FREE</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: 800; color: #fff; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.5rem;">
+          <span>Estimated Total:</span>
+          <span id="cart-grand-total">$0.00</span>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="closeCartModal()">Keep Shopping</button>
+        <button class="btn btn-primary" onclick="openCheckoutModal()">Proceed to Payment ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simulated Payment Gateway Modal -->
+  <div class="modal-backdrop" id="checkout-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">Simulated Express Payment</h2>
+        <button class="close-btn" onclick="closeCheckoutModal()">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">
+          Simulate a secure payment (Stripe Card, Instant UPI, or One-Touch Demo Pay) to place your express pickup order.
+        </p>
+
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+          <div style="font-weight: 700; margin-bottom: 0.5rem;">Payment Method:</div>
+          <div style="display: flex; gap: 1rem;">
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+              <input type="radio" name="pay-method" value="card_mock" checked> 💳 Credit / Debit Card
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.4rem; cursor: pointer;">
+              <input type="radio" name="pay-method" value="upi_mock"> ⚡ Instant UPI / QR
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">Customer Name for Pickup:</label>
+          <input type="text" id="cust-name-input" value="Alex Johnson" class="custom-select" style="width: 100%; margin-top: 0.35rem;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label style="font-size: 0.82rem; color: var(--text-muted); font-weight: 600;">Contact Phone for SMS Alerts:</label>
+          <input type="text" id="cust-phone-input" value="+1 (555) 392-1084" class="custom-select" style="width: 100%; margin-top: 0.35rem;">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="closeCheckoutModal()">Back</button>
+        <button class="btn btn-primary" id="btn-pay-now" onclick="executePayment()">
+          🔒 Pay $<span id="pay-amount-display">0.00</span> & Generate Pass
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Express Digital QR Pickup Pass Modal -->
+  <div class="modal-backdrop" id="ticket-modal">
+    <div class="modal-card" style="text-align: center;">
+      <div class="modal-header">
+        <h2 class="modal-title" style="margin: 0 auto;">🎟️ Express Collection Pass</h2>
+        <button class="close-btn" onclick="closeTicketModal()">&times;</button>
+      </div>
+
+      <div class="ticket-card">
+        <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted);">
+          Sequential Order Number
+        </div>
+        <div class="ticket-order-code" id="ticket-order-code">S01-#000</div>
+
+        <div class="ticket-pin">
+          Security PIN: <span id="ticket-pin-val">----</span>
+        </div>
+
+        <!-- Dynamic Inline QR Code Canvas -->
+        <div class="qr-canvas-wrap">
+          <div id="ticket-qrcode"></div>
+        </div>
+
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          Show this QR code or 4-digit PIN at the Express Counter scanner for sub-30-second collection.
+        </div>
+
+        <!-- Dynamic Bin Assignment Highlight (populated when ready) -->
+        <div id="ticket-bin-container" style="display: none;">
+          <div style="font-size: 0.8rem; text-transform: uppercase; color: #a7f3d0; font-weight: 700;">
+            Assigned Storage Location:
+          </div>
+          <div class="bin-location-badge" id="ticket-bin-badge">
+            LOCKER B-04
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Status Stepper -->
+      <div class="status-stepper">
+        <div class="step-item" id="step-placed">
+          <div class="step-circle">1</div>
+          <div class="step-label">Placed</div>
+        </div>
+        <div class="step-item" id="step-picking">
+          <div class="step-circle">2</div>
+          <div class="step-label">Picking</div>
+        </div>
+        <div class="step-item" id="step-ready">
+          <div class="step-circle">3</div>
+          <div class="step-label">Ready in Locker</div>
+        </div>
+        <div class="step-item" id="step-collected">
+          <div class="step-circle">4</div>
+          <div class="step-label">Collected</div>
+        </div>
+      </div>
+
+      <!-- "I Have Arrived" Action Button -->
+      <div style="margin-top: 1.5rem;">
+        <button class="btn btn-accent" id="btn-arrived" onclick="triggerCustomerArrival()" style="width: 100%; padding: 0.9rem; font-size: 1rem;">
+          📍 I Have Arrived at Store (Alert Counter)
+        </button>
+        <div id="arrived-notice" style="display: none; margin-top: 0.5rem; color: var(--primary); font-size: 0.85rem; font-weight: 600;">
+          ✓ Counter staff has been alerted of your arrival!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/shared-nav.js"></script>
+  <script src="/js/customer.js"></script>
+</body>
+</html>

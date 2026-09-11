@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwiftPick Express - Express Counter Cashier</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <!-- HTML5 Camera QR Code Scanner -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body style="background: #090e1a;">
+
+  <!-- Floating Multi-Role Switcher Header -->
+  <div id="shared-nav-container"></div>
+
+  <main class="app-container">
+
+    <!-- Top Header -->
+    <header class="page-header">
+      <div class="page-title-group">
+        <h1>
+          <span>⚡ Express Pickup Counter</span>
+          <span class="logo-badge" style="background: #f59e0b; color: #451a03;">SUB-30s HANDOVER</span>
+        </h1>
+        <p>Instant camera QR scan or 4-digit PIN lookup. Direct customer to holding locker.</p>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <div class="status-pill">
+          <span>Counter Staff:</span>
+          <strong style="color: #fff;">Elena Rostova</strong>
+        </div>
+      </div>
+    </header>
+
+    <!-- Visual Alert Banner when Customer Arrives / Checks In -->
+    <div id="arrived-alert-box" class="arrived-alert-card" style="display: none;">
+      <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span style="font-size: 2.2rem;">🚨</span>
+          <div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #fff;">
+              CUSTOMER ARRIVED AT COUNTER: <span id="alert-cust-name"></span> (<span id="alert-order-code"></span>)
+            </div>
+            <div style="font-size: 0.88rem; color: #fde68a;">
+              Target Bin: <strong id="alert-bin-name" style="font-size: 1.1rem; color: #fff; background: rgba(0,0,0,0.4); padding: 0.2rem 0.5rem; border-radius: 4px;"></strong>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="loadArrivedOrderToCounter()">
+          ⚡ Quick Load to Verification ➔
+        </button>
+      </div>
+    </div>
+
+    <!-- Counter Main Grid: Left Scanner / Right Order Details -->
+    <div class="counter-grid">
+      
+      <!-- LEFT: Scanner & PIN Input -->
+      <section class="scanner-panel">
+        <h2 style="font-size: 1.2rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
+          1. Scan Digital Pass or Enter PIN
+        </h2>
+        <p style="color: var(--text-muted); font-size: 0.85rem;">
+          Hold the customer's mobile QR code up to the counter camera, or type the 4-digit security PIN.
+        </p>
+
+        <!-- Camera Scanner Element -->
+        <div id="qr-reader" style="width: 100%; border-radius: 12px; overflow: hidden; margin: 1rem 0; border: 2px dashed var(--accent);"></div>
+
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+          <button class="btn btn-secondary" id="btn-toggle-camera" onclick="toggleCameraScanner()" style="width: 100%;">
+            📷 Start Camera Scanner
+          </button>
+        </div>
+
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1.25rem;">
+          <label style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">
+            Or Fast 4-Digit PIN Lookup:
+          </label>
+          <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+            <input type="text" id="pin-input" placeholder="e.g. 4821" maxlength="6"
+              style="font-family: var(--font-mono); font-size: 1.5rem; letter-spacing: 0.2em; text-align: center; width: 160px;"
+              class="custom-select"
+              onkeypress="if(event.key === 'Enter') lookupByPin()"
+            >
+            <button class="btn btn-primary" onclick="lookupByPin()" style="flex-grow: 1;">
+              Verify PIN ➔
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: Instant Bin Locator & Handover Verification Card -->
+      <section class="scanner-panel" id="verification-panel">
+        <h2 style="font-size: 1.2rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
+          2. Instant Bin Locator & Verification
+        </h2>
+
+        <div id="no-order-placeholder" style="text-align: center; padding: 4rem 1rem; color: var(--text-muted);">
+          <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔍</div>
+          <h3>Waiting for scan or PIN</h3>
+          <p>Scan a customer QR code to immediately retrieve locker location.</p>
+        </div>
+
+        <div id="order-active-display" style="display: none; flex-direction: column; height: 100%;">
+          
+          <!-- Large Prominent Bin Locator -->
+          <div style="background: linear-gradient(135deg, rgba(16,185,129,0.2), rgba(6,182,212,0.2)); border: 2px solid var(--primary); border-radius: 14px; padding: 1.5rem; text-align: center; margin-bottom: 1.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary);">
+              COLLECTION STAGING LOCATION
+            </div>
+            <div id="display-bin-name" style="font-family: var(--font-mono); font-size: 2.6rem; font-weight: 900; color: #fff; letter-spacing: 0.05em; margin: 0.25rem 0;">
+              LOCKER B-04
+            </div>
+            <div style="font-size: 0.85rem; color: #6ee7b7;">
+              ✓ All items verified & packed by floor staff
+            </div>
+          </div>
+
+          <!-- Order Summary Details -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: var(--text-muted);">Order Code:</span>
+              <strong id="display-order-code" style="font-family: var(--font-mono); color: #fff; font-size: 1.1rem;">S01-#001</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: var(--text-muted);">Customer:</span>
+              <strong id="display-cust-name" style="color: #fff;">Marcus Vance</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: var(--text-muted);">Pickup Slot:</span>
+              <strong id="display-slot-time" style="color: #fff;">5:15 PM – 5:30 PM</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: var(--text-muted);">Payment:</span>
+              <strong style="color: var(--primary);">PAID ($<span id="display-total-price">0.00</span>)</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Security PIN:</span>
+              <strong id="display-pin-val" style="font-family: var(--font-mono); color: var(--accent);">4821</strong>
+            </div>
+          </div>
+
+          <!-- Items Checklist in Bag -->
+          <div style="flex-grow: 1; margin-bottom: 1.5rem;">
+            <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+              Bag Contents (<span id="display-item-count">0</span> items):
+            </div>
+            <div id="display-items-list" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.4rem;">
+              <!-- item list -->
+            </div>
+          </div>
+
+          <!-- 1-Click Handover Action Button -->
+          <button class="btn btn-primary" id="btn-handover" onclick="confirmHandover()" style="width: 100%; padding: 1.1rem; font-size: 1.1rem; font-weight: 800;">
+            ✓ Confirm Handover & Mark Collected
+          </button>
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- Ready in Lockers Queue Table -->
+    <section style="margin-top: 2.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 800;">📦 Ready for Collection in Lockers / Shelves</h3>
+        <button class="btn btn-secondary" onclick="loadReadyOrders()">Refresh Staging</button>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="manager-table">
+          <thead>
+            <tr>
+              <th>Order Code</th>
+              <th>Customer</th>
+              <th>Slot</th>
+              <th>Staging Bin</th>
+              <th>PIN</th>
+              <th>Customer Arrived?</th>
+              <th>Quick Action</th>
+            </tr>
+          </thead>
+          <tbody id="staging-orders-tbody">
+            <!-- Populated via counter.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/js/shared-nav.js"></script>
+  <script src="/js/counter.js"></script>
+</body>
+</html>

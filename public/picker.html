@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwiftPick Express - Store Picker KDS Tablet</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body style="background: #090d16;">
+
+  <!-- Floating Multi-Role Switcher Header -->
+  <div id="shared-nav-container"></div>
+
+  <main class="app-container">
+    
+    <!-- Top Header -->
+    <header class="page-header">
+      <div class="page-title-group">
+        <h1>
+          <span>📋 Floor Picker Tablet KDS</span>
+          <span class="logo-badge" style="background: #06b6d4; color: #083344;">HIGH-DENSITY KDS</span>
+        </h1>
+        <p>Aisle-sequenced routing (Aisle 1 ➔ Aisle 5). Bag items in single-pass walking order.</p>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <div class="status-pill">
+          <span>Active Queued Orders:</span>
+          <strong id="active-queue-count" style="color: #fff; font-family: var(--font-mono); font-size: 1rem;">0</strong>
+        </div>
+        <button class="btn btn-secondary" onclick="loadPickerOrders()">🔄 Refresh</button>
+      </div>
+    </header>
+
+    <!-- Filter Pills -->
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+      <button class="btn btn-primary" id="filter-active" onclick="filterKds('active', this)">Active Floor Orders</button>
+      <button class="btn btn-secondary" id="filter-ready" onclick="filterKds('ready', this)">Packed in Bins (Ready)</button>
+      <button class="btn btn-secondary" id="filter-all" onclick="filterKds('all', this)">All Orders</button>
+    </div>
+
+    <!-- KDS Board Container -->
+    <section class="kds-board" id="kds-board">
+      <!-- Injected via picker.js -->
+    </section>
+
+  </main>
+
+  <!-- Complete Packing & Physical Bin Assignment Modal -->
+  <div class="modal-backdrop" id="bin-assign-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">📦 Complete Packing & Assign Staging Bin</h2>
+        <button class="close-btn" onclick="closeBinModal()">&times;</button>
+      </div>
+
+      <div style="margin-bottom: 1.5rem;">
+        <p style="color: var(--text-muted); font-size: 0.92rem; margin-bottom: 1.25rem;">
+          All items for order <strong id="bin-modal-order-code" style="color: var(--primary); font-family: var(--font-mono); font-size: 1.1rem;"></strong> are picked and bagged. Select the physical shelf or express locker where this bag is staged:
+        </p>
+
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label style="font-size: 0.82rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">
+            Holding Bin / Locker Staging Location:
+          </label>
+          <select id="bin-select" class="custom-select" style="width: 100%; margin-top: 0.5rem; font-size: 1rem; padding: 0.75rem;">
+            <optgroup label="⚡ Express Pickup Lockers (Front Counter)">
+              <option value="Locker A-01">Locker A-01 (Express Front)</option>
+              <option value="Locker A-02">Locker A-02 (Express Front)</option>
+              <option value="Locker B-01">Locker B-01 (Express Front)</option>
+              <option value="Locker B-04" selected>Locker B-04 (Express Front)</option>
+            </optgroup>
+            <optgroup label="❄️ Cold / Refrigerated Staging Units">
+              <option value="Cold Unit C-01">Cold Unit C-01 (Dairy/Chilled)</option>
+              <option value="Cold Unit C-02">Cold Unit C-02 (Produce/Chilled)</option>
+            </optgroup>
+            <optgroup label="📦 Ambient Dry Goods Shelves">
+              <option value="Shelf D-01">Shelf D-01 (Large Bins)</option>
+              <option value="Shelf D-02">Shelf D-02 (Large Bins)</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+        <button class="btn btn-secondary" onclick="closeBinModal()">Back to Checklist</button>
+        <button class="btn btn-primary" id="btn-confirm-bin" onclick="submitBinAssignment()">
+          ✓ Mark Packed & Notify Counter (Sub-30s Handover Ready)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/shared-nav.js"></script>
+  <script src="/js/picker.js"></script>
+</body>
+</html>

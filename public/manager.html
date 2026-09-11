@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwiftPick Express - Store Manager Command Portal</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body style="background: #080d1a;">
+
+  <!-- Floating Multi-Role Switcher Header -->
+  <div id="shared-nav-container"></div>
+
+  <main class="app-container">
+
+    <!-- Top Header -->
+    <header class="page-header">
+      <div class="page-title-group">
+        <h1>
+          <span>📊 Store Manager Operations Center</span>
+          <span class="logo-badge" style="background: #8b5cf6; color: #fff;">MANAGER SUITE</span>
+        </h1>
+        <p>Real-time inventory overrides (Item 86), floor picking throughput, hourly slot quotas, and revenue.</p>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <button class="btn btn-secondary" onclick="refreshDashboard()">🔄 Refresh Live Metrics</button>
+      </div>
+    </header>
+
+    <!-- Operational KPI Metrics Row -->
+    <section class="metrics-row" id="kpi-row">
+      <div class="metric-card">
+        <div class="metric-label">Average Pick Speed</div>
+        <div class="metric-val" style="color: var(--accent);"><span id="metric-pick-speed">3.8</span> <span style="font-size: 1rem; font-weight: 500;">min</span></div>
+        <div style="font-size: 0.75rem; color: #34d399;">⚡ Optimal floor picking pace</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Total Daily Settled</div>
+        <div class="metric-val" style="color: var(--primary);"><span id="metric-settled-count">0</span></div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);"><span id="metric-active-count">0</span> currently on floor</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Net Daily Revenue</div>
+        <div class="metric-val" style="color: #fff;">$<span id="metric-net-revenue">0.00</span></div>
+        <div style="font-size: 0.75rem; color: #34d399;">↑ Real-time settlement ledger</div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-label">Active 5-Min Cart Locks</div>
+        <div class="metric-val" style="color: var(--warning);"><span id="metric-active-locks">0</span></div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Atomic hold protection active</div>
+      </div>
+    </section>
+
+    <!-- Manager Tabs: Item 86 Override | Slot Capacity | Real-Time Audit Feed -->
+    <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+      <button class="btn btn-primary" id="tab-btn-override" onclick="switchManagerTab('override', this)">
+        🛑 Emergency Stock Override ("Item 86")
+      </button>
+      <button class="btn btn-secondary" id="tab-btn-slots" onclick="switchManagerTab('slots', this)">
+        ⏱️ Hourly Slot Quota Management
+      </button>
+      <button class="btn btn-secondary" id="tab-btn-feed" onclick="switchManagerTab('feed', this)">
+        📡 Real-Time Operational Event Feed
+      </button>
+    </div>
+
+    <!-- PANEL 1: ITEM 86 EMERGENCY OVERRIDE -->
+    <section id="panel-override" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 800;">Real-Time Stock Availability Overrides ("Item 86")</h2>
+          <p style="color: var(--text-muted); font-size: 0.85rem;">
+            Toggle any SKU off to immediately freeze it and disable the '+' button across all customer screens in real-time.
+          </p>
+        </div>
+        <div>
+          <input type="text" id="filter-stock-input" placeholder="Search title or aisle..." class="custom-select" onkeyup="filterStockTable(this.value)">
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="manager-table">
+          <thead>
+            <tr>
+              <th>SKU / Product</th>
+              <th>Aisle Location</th>
+              <th>Category</th>
+              <th>Unit Price</th>
+              <th>Available (Locks)</th>
+              <th>Total Stock</th>
+              <th>Availability Toggle (Item 86)</th>
+            </tr>
+          </thead>
+          <tbody id="stock-table-tbody">
+            <!-- Populated via manager.js -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PANEL 2: HOURLY PICKUP SLOT QUOTA MANAGEMENT -->
+    <section id="panel-slots" style="display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 0.5rem;">Hourly Slot Capacity & Throttle Limits</h2>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
+        Prevent counter bottlenecks by capping maximum allowed pickup reservations per 15-minute window.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem;" id="slots-grid">
+        <!-- Injected via manager.js -->
+      </div>
+    </section>
+
+    <!-- PANEL 3: REAL-TIME AUDIT LOG -->
+    <section id="panel-feed" style="display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; margin-bottom: 2rem;">
+      <h2 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 0.5rem;">Inter-System Socket.io Audit Stream</h2>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
+        Live stream of socket transmissions across floor pickers, express counters, and online customers.
+      </p>
+
+      <div id="activity-log-feed" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; font-family: var(--font-mono); font-size: 0.85rem;">
+        <!-- Log entries -->
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/js/shared-nav.js"></script>
+  <script src="/js/manager.js"></script>
+</body>
+</html>
