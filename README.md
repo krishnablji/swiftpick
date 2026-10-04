@@ -9,7 +9,7 @@
 
 ---
 
-## 🏗️ System Architecture & Real-Time Pipeline
+## 🏗️ System Architecture & Real-Time Pipeline:
 
 ```
   ┌────────────────────────────────────────────────────────┐
