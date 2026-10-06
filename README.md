@@ -7,7 +7,7 @@
 
 > An enterprise-grade, high-throughput Click & Collect retail fulfillment platform engineered for real-time operations, atomic stock consistency, and sub-30-second customer handovers.
 
----
+----
 
 ## 🏗️ System Architecture & Real-Time Pipeline:
 
